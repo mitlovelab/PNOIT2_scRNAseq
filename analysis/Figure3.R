@@ -12,7 +12,11 @@ library(ggbeeswarm)
 
 # import dataset ----------------------------------------------------------
 
-Total_meta_data <- read_rds("data/Total_meta_data.rds"))
+# 300k cells, more inclusive
+Total_meta_data <- read_rds("data/Total_meta_data.rds")
+
+# 100k cells, higher-quality subset
+HQ_meta_data <- read_rds("data/Processed_PNOIT2_cellmetadata.rds")
 
 # Functions ---------------------------------------------------------------
 
@@ -45,54 +49,45 @@ shift_fn <- function(x){
 
 # Figure 3A ---------------------------------------------------------------
 
-
-BM_meta_data <- read_rds("data/Processed_PNOIT2_cellmetadata.rds")
-colnames(BM_meta_data)
-
-ggplot(BM_meta_data, aes(umap1,umap2,color = condition)) + geom_point()
-
 # Join the 300k and 100k datasets
 #TODO: clean this up to be more concise
-BM_meta_data <- BM_meta_data %>% rename(umap1_100k = umap1, umap2_100k = umap2)
+HQ_meta_data <- HQ_meta_data %>% rename(umap1_100k = umap1, umap2_100k = umap2)
 
-Total_meta_data <- Total_meta_data %>% left_join(BM_meta_data %>% select(Barcode, patient, condition,
-                                                                         umap1_100k, umap2_100k),
-                                                 by = c("Barcode","patient","condition"))
+Total_meta_data <- Total_meta_data %>% 
+  left_join(HQ_meta_data %>% 
+              select(Barcode, patient, condition, umap1_100k, umap2_100k), 
+              by = c("Barcode","patient","condition"))
 
-Total_meta_data %>% filter(!is.na(umap1_100k)) %>% dim()
+# Calculate the TCR counts:
 
-ggplot(Total_meta_data, aes(umap1_100k, umap2_100k, color = condition)) + geom_point()
-
-# Add the TCR counts back:
-
-Total_meta_data %>% count(TRB_CDR3) %>% 
-  filter(!is.na(TRB_CDR3)) %>% arrange(desc(n)) -> Total_CDR3B_count
+Total_CDR3B_count <- Total_meta_data %>% 
+  count(TRB_CDR3) %>% 
+  filter(!is.na(TRB_CDR3)) %>% 
+  arrange(desc(n))
 colnames(Total_CDR3B_count) <- c("TRB_CDR3","clones")
 
-Total_meta_data %>% count(TRA_CDR3) %>% 
-  filter(!is.na(TRA_CDR3)) %>% arrange(desc(n)) -> Total_CDR3A_count
+Total_CDR3A_count <- Total_meta_data %>% 
+  count(TRA_CDR3) %>% 
+  filter(!is.na(TRA_CDR3)) %>% 
+  arrange(desc(n))
 colnames(Total_CDR3A_count) <- c("TRA_CDR3","clones")
 
 left_join(Total_meta_data, Total_CDR3B_count, by = "TRB_CDR3") %>% .$clones -> Total_meta_data$Total_TRB_count
-str(Total_meta_data$Total_TRB_count)
-
 left_join(Total_meta_data, Total_CDR3A_count, by = "TRA_CDR3") %>% .$clones -> Total_meta_data$Total_TRA_count
-str(Total_meta_data$Total_TRA_count)
 
 # Plot total TRA and TRB count. Shuffle the order of data points first.
+Total_meta_data <- Total_meta_data %>% sample_frac()
 
-Total_meta_data <- Total_meta_data %>% sample_n(size = 312618) # the number here has changed by 12 (312630) due to barcode clashes
-
-Total_meta_temp <- Total_meta_data %>% select(umap1_100k,umap2_100k,Total_TRB_count,Total_TRA_count)
-Total_meta_temp <- Total_meta_temp %>% filter(!is.na(umap1_100k))
+Total_meta_temp <- Total_meta_data %>% 
+  select(umap1_100k,umap2_100k,Total_TRB_count,Total_TRA_count) %>% 
+  filter(!is.na(umap1_100k))
 
 TRB_breaks <- log2(2^(c(0,seq(7))))
 TRB_breaks_label <- 2^(c(0,seq(7)))
 
 # Filter this by NAs, then bind the rows back
-
 Total_meta_b <- Total_meta_temp %>% filter(is.na(Total_TRB_count))
-Total_meta_b_1 <- Total_meta_temp %>% filter(!is.na(Total_TRB_count)) #%>% arrange(Total_TRB_count)
+Total_meta_b_1 <- Total_meta_temp %>% filter(!is.na(Total_TRB_count))
 Total_meta_b <- bind_rows(Total_meta_b,Total_meta_b_1)
 
 p <- ggplot(Total_meta_b, aes(umap1_100k, umap2_100k, color = log2(Total_TRB_count))) +
@@ -114,7 +109,7 @@ TRA_breaks_label <- 2^(c(0,seq(8)))
 # Filter this by NAs, then bind the rows back
 
 Total_meta_a <- Total_meta_temp %>% filter(is.na(Total_TRA_count))
-Total_meta_a_1 <- Total_meta_temp %>% filter(!is.na(Total_TRA_count)) #%>% arrange(Total_TRB_count)
+Total_meta_a_1 <- Total_meta_temp %>% filter(!is.na(Total_TRA_count))
 Total_meta_a <- bind_rows(Total_meta_a,Total_meta_a_1)
 
 p_a <- ggplot(Total_meta_a, aes(umap1_100k, umap2_100k, color = log2(Total_TRA_count))) +
@@ -177,8 +172,39 @@ ggsave("results/Fig3C_clonal_sizes_entropy.pdf",width = 2.8, height = 3, units =
 
 # Figure 3D ---------------------------------------------------------------
 
-# Sharing of clonotypes bewteen the sorted subsets.
-# TODO: move the plotting here from extended data figure code.
+# Level of sharing of TCRb clonotypes between conditions
+# "condition": a sorted subset (CD137+, CD154+, CD137-CD154-) at a timepoint
+
+# Downsample to the patients for which we have TCR data from all 3 sorted subsets
+TCR_data <- Total_meta_data %>%
+  # TODO: update with latest list of patients with TCR
+  filter(patient %in% c("P106","P111","P33","P95")) %>%
+  filter(!is.na(TRB_CDR3))
+
+conditions <- levels(droplevels(TCR_data$orig.ident))
+
+# Get % shared clonotypes between each pair of conditions
+pairwiseTCR <- matrix(0, nrow=length(conditions), ncol=length(conditions))
+rownames(pairwiseTCR) <- conditions
+colnames(pairwiseTCR) <- conditions
+for (i in 1:nrow(pairwiseTCR)){
+  clones1 <- TCR_data[which(TCR_data$orig.ident == rownames(pairwiseTCR)[i]),]
+  clones1 <- as.character(unique(clones1$TRB_CDR3))
+  for (j in 1:nrow(pairwiseTCR)){
+    clones2 <- TCR_data[which(TCR_data$orig.ident == rownames(pairwiseTCR)[j]),]
+    clones2 <- as.character(unique(clones2$TRB_CDR3))
+    # Normalize by geometric mean of number of clonotypes
+    geom_mean <- sqrt(length(clones1)*length(clones2))
+    pairwiseTCR[i,j] <- 100*sum(table(c(clones1, clones2)) > 1) / geom_mean
+  }
+  pairwiseTCR[i,i] <- NA
+}
+
+pheatmap(pairwiseTCR, color = viridis(100), 
+         cluster_rows = FALSE, cluster_cols= FALSE, 
+         fontsize = 6, width = 4.2, height = 4, border_color = NA, 
+         filename = "results/Fig3D_TCRsharing.pdf")
+
 
 
 # Figure 3E ---------------------------------------------------------------
@@ -196,8 +222,6 @@ Total_filtered <- Total_meta_data %>% filter(condition != "DblNeg") %>%
   filter(!is.na(TRB_CDR3)) %>% filter(HighQ == TRUE) # remove lower quality cells
 
 Total_filtered_all_cond <- Total_meta_data %>% filter(!is.na(TRB_CDR3)) %>% filter(HighQ == TRUE) #use high quality cells
-
-Total_filtered <- Total_filtered %>% select(c(1:72),c(128:177), Total_TRB_count,Total_TRA_count, TRB_count_group, TRA_count_group) # not used
 
 # OK now, we need to get the average clonal size for all module-scoring cells
 Module_gates <- Module_gates[1:50]
@@ -246,17 +270,17 @@ ggplot(expansion, aes(x=Expansion_154, y=Enrichment_154)) +
   geom_text_repel(data = expansion %>% top_n(n = 6, wt = Enrichment_154), aes(label = Module), size = 2,force = 0.1) + 
   geom_text_repel(data = expansion %>% top_n(n = 6, wt = Expansion_154), aes(label = Module), size = 2,force = 0.1) +
   labs(y = "Fold Enrichment (CD154)", x = "Average clonal size (CD154)") + ggpreset
-ggsave("Fig3E_expansion_vs_enrichment_CD154_labeled_V3.pdf", width=2.6, height=2.6)
+ggsave("results/Fig3E_expansion_vs_enrichment_CD154_labeled_V3.pdf", width=2.6, height=2.6)
 
 ggplot(expansion, aes(x=Expansion_137, y=Enrichment_137)) + 
   geom_point(size=1.5, stroke = 0, pch = 16) + 
   geom_text_repel(data = expansion %>% top_n(n = 6, wt = Enrichment_137), aes(label = Module), size = 2,force = 0.1) + 
   geom_text_repel(data = expansion %>% top_n(n = 6, wt = Expansion_137), aes(label = Module), size = 2,force = 0.1) +
   labs(y = "Fold Enrichment (CD137)", x = "Average clonal size (CD137)") + ggpreset
+ggsave("results/Fig3_expansion_vs_enrichment_CD137_labeled_V3.pdf", width=2.6, height=2.6)
 
-ggsave("Fig3_expansion_vs_enrichment_CD137_labeled_V3.pdf", width=2.6, height=2.6)
 ggplot(expansion, aes(x=log10(Enrichment_154), y=log10(Enrichment_137))) + 
   geom_point(size=1.5, stroke = 0, pch = 16) + 
   geom_text_repel(aes(label = Module), size = 2,force = 2, segment.size = 0.2) +
   ggpreset + labs(x = "Fold Enrichment (CD154)", y = "Fold Enrichment (CD137)")
-ggsave("Fig3_enrichment_vs_enrichment_CD137v154_labeled_v3.pdf", width=2.6, height=2.6, useDingbats=FALSE)
+ggsave("results/Fig3_enrichment_vs_enrichment_CD137v154_labeled_v3.pdf", width=2.6, height=2.6, useDingbats=FALSE)
