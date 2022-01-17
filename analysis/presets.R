@@ -1,13 +1,20 @@
 # Purpose: Import commonly used libraries, color palettes, and ggplot presets
 
 # LIBRARIES ---------
-library(data.table)
 library(Seurat)
+library(reshape2)
+library(vegan)
+library(factoextra)
+library(data.table)
+library(ggpubr)
+library(ggrepliel)
+library(ggbeeswarm)
+library(pheatmap)
+library(dendsort)
 library(gplots)
 library(viridis)
 library(RColorBrewer)
 library(scales)
-library(ggbeeswarm)
 #library(ggplot2)
 library(ggrastr)
 #library(dplyr)

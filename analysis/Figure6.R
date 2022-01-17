@@ -3,8 +3,6 @@
 
 # Pre-subsetting down the right cells ----
 
-# library(Seurat)
-# library(dplyr)
 # seurat = readRDS('data/Processed_PNOIT2_seurat.RDS')
 # data_with_modules = readRDS('data/tcr_scores_genes_gates.RDS')
 # cells = as.data.frame(as.matrix(t(seurat@data)))
@@ -30,16 +28,7 @@
 
 # Load libraries and presets ----
 
-library(dplyr)
-library(ggplot2)
-library(RColorBrewer)
-library(ggpubr)
-library(Seurat)
-library(pheatmap)
-library(dendsort)
-
-source("utils.R")
-source("presets.R")
+source("analysis/presets.R")
 
 symnum.args <- list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 3)/3, symbols = c("****", "***", "**", "*", "ns"))
 

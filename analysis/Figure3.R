@@ -3,12 +3,8 @@
 
 # Source functions and libraries---------------------------------------------------------------
 
-source("presets.R")
+source("analysis/presets.R")
 
-library(ggpubr)
-library(ggrepliel)
-library(vegan)
-library(ggbeeswarm)
 
 # import dataset ----------------------------------------------------------
 

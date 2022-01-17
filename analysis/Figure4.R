@@ -2,17 +2,9 @@
 
 # libraries ---------------------------------------------------------------
 
-library(Seurat)
-library(tidyverse)
-library(ggpubr)
-library(reshape2)
-library(RColorBrewer)
-library(viridis)
-library(pheatmap)
-library(dendsort)
+source('analysis/presets.R')
 
-source('pnoit2_SeqWell/colorpalettes.R')
-source('pnoit2_SeqWell/figure_parameters.R')
+
 # Functions ---------------------------------------------------------------
 sort_hclust <- function(...) as.hclust(dendsort(as.dendrogram(...)))
 sort_hclust_avg <- function(...) as.hclust(dendsort(as.dendrogram(...),type = "average"))

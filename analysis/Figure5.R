@@ -1,18 +1,7 @@
 # Figure 5: Th1 and Th2 effector, but not Tfh-like, subsets are suppressed by OIT.
 
-# libraries ---------------------------------------------------------------
 
-library(tidyverse)
-library(ggpubr)
-library(factoextra)
-library(viridis)
-library(pheatmap)
-library(RColorBrewer)
-library(ggbeeswarm)
-
-# Figure configuration ----------------------------------------------------
-
-source("presets.R")
+source("analysis/presets.R")
 
 # data setup --------------------------------------------------------------
 
@@ -131,7 +120,7 @@ ggplot(PCA_prediction, aes(x = outcome, y = PC1, fill = outcome)) +
   Axis_themes + theme(legend.position = 'none') + 
   labs(x = '') + theme(axis.text.x = element_text(angle = -45, hjust = 0)) +
   stat_compare_means(comparisons = list(c(1,2), c(1,3), c(2,3)), size = 2.1)
-ggsave("Figure5D_PCA_BL_v2.pdf", width = 3, height = 3, units = 'in', family = 'ArialMT')
+ggsave("results/Figure5D_PCA_BL_v2.pdf", width = 3, height = 3, units = 'in', family = 'ArialMT')
 
 
 # Get the loadings in PC1
@@ -146,7 +135,7 @@ ggplot(PC1_tb, aes(x = Module, y = Loading)) +
   theme(axis.title.x = element_blank()) + labs(x = "PC1 Modules (38.3%)") +
   coord_flip() + Axis_themes
 
-ggsave("Baseline_PC1_loadings.pdf",height = 3, width = 3, family = "ArialMT")
+ggsave("results/Baseline_PC1_loadings.pdf",height = 3, width = 3, family = "ArialMT")
 
 
 # Pick out the highest few loadings for plotting
@@ -161,6 +150,6 @@ ggplot(PC1_tb_filtered, aes(x = Module, y = Loading)) +
   theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
   coord_flip() + Axis_themes
 
-ggsave("Fig5E_PC1_loadings_filtered.pdf",height = 2, width = 1.25, family = "ArialMT")
+ggsave("results/Fig5E_PC1_loadings_filtered.pdf",height = 2, width = 1.25, family = "ArialMT")
 
 
