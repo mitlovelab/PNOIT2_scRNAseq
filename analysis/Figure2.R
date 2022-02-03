@@ -4,7 +4,7 @@
 
 source("analysis/presets.R")
 Total_meta_data <- readRDS("data/Total_meta_data.rds")
-
+seurat <-  readRDS("data/tcr_scores_genes_gates.RDS")
 
 # Figure 2A -------------
 
@@ -34,7 +34,45 @@ ggsave("results/Fig2A_UMAP_subset.pdf", width=2.5, height=2.5, useDingbats=FALSE
 
 
 # Figure 2B ------------
-#TODO: CD154 vs CD137 genes heatmap, need to pull from extended figure 1 code
+
+# Plot differentially expressed genes between CD154+, CD137+, and double-negative subsets
+
+# First examine the top genes using ROC test in seurat
+# Randomly subset the data to speed things up
+# TODO: replace outdated seurat functions
+#seurat <- SetAllIdent(object=seurat, id="condition")
+#seurat2 <- SubsetData(object=seurat, max.cells.per.ident = 2000)
+#FindMarkers(seurat2, ident.1 = "CD137", ident.2 = c("CD154","DblNeg"), test.use = "roc", max.cells.per.ident=2000)
+#FindMarkers(seurat2, ident.1 = "CD154", ident.2 = c("CD137","DblNeg"), test.use = "roc", max.cells.per.ident=2000)
+#FindMarkers(seurat2, ident.1 = "DblNeg", ident.2 = c("CD154","CD137"), test.use = "roc", max.cells.per.ident=2000)
+
+# Final set of genes for plotting:
+# TODO: not all genes are present in the truncated data, fix
+genes <- c(
+  "TNFRSF9","HLA-A","IKZF2","FOXP3","TIGIT","IL2RA","TNFRSF1B","BATF", # enriched in CD137
+  "CD40LG","BHLHE40","LCP1","VIM","SOS1","ACTG1","ACTB","PKM", # enriched in CD154
+  "TPT1","IL7R","RPL31","RPL30","TCF7","PABPC1","TMEM66" # enriched in DblNeg
+)
+
+# Get mean expression of each gene in each sorted subset/patient
+genes_summary <- as.data.frame(t(as.matrix(seurat@data[genes,])))
+genes_summary$patient = seurat@meta.data$patient
+genes_summary$condition = seurat@meta.data$condition
+
+genes_summary <- genes_summary %>%
+  group_by(condition, patient) %>%
+  summarise_all(mean)
+
+# Sort to keep the genes in the desired order, and scale the columns
+genes_plot <- genes_summary %>%
+  ungroup() %>%
+  select(genes) %>%
+  mutate_each(funs(scale))
+
+pheatmap(t(as.matrix(genes_plot)), color = viridis(100, option='inferno'), 
+         cluster_rows = FALSE, cluster_cols= FALSE, 
+         fontsize = 6, width = 4, height = 4.5, border_color = NA, 
+         filename = "results/Fig2B_DEgenes.pdf")
 
 
 # Figure 2C ------------
